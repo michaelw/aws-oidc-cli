@@ -5,14 +5,14 @@
         {
             "label": "Build SAM App",
             "type": "shell",
-            "command": "sam build",
+            "command": "make",
             "group": "build",
             "problemMatcher": []
         },
         {
             "label": "Test Go Code",
             "type": "shell",
-            "command": "go test ./...",
+            "command": "go test -v ./...",
             "group": "test",
             "problemMatcher": []
         }

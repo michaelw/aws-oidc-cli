@@ -8,13 +8,13 @@ import (
 )
 
 func TestMockOIDCClient(t *testing.T) {
-	mock := &MockOIDCClient{}
-	authURL, verifier, err := mock.StartAuth(context.Background(), "cid", "state")
+	oidcClient := &MockOIDCClient{}
+	authURL, err := oidcClient.StartAuth(context.Background(), "cid", "sessid", "verifier", "state")
 	assert.NoError(t, err)
 	assert.Equal(t, "mockAuthURL", authURL)
-	assert.Equal(t, "mockVerifier", verifier)
 
-	token, err := mock.ExchangeCode(context.Background(), "code", "verifier")
+	token, err := oidcClient.ExchangeCode(context.Background(), "code", "verifier")
 	assert.NoError(t, err)
-	assert.Equal(t, "mockAccessToken", token)
+	assert.Equal(t, "mockAccessToken", token.AccessToken)
+	assert.Equal(t, "mockIDToken", token.Extra("id_token"))
 }

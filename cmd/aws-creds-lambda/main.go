@@ -3,30 +3,29 @@ package main
 
 import (
 	"context"
+	"log"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/michaelw/aws-creds-oidc/internal/awscreds"
+	"github.com/michaelw/aws-creds-oidc/internal/awsutils"
 	"github.com/michaelw/aws-creds-oidc/internal/handler"
 	"github.com/michaelw/aws-creds-oidc/internal/oidc"
-	"github.com/michaelw/aws-creds-oidc/internal/session"
 )
 
 func main() {
+	log.SetFlags(log.Lshortfile) // Disable timestamp and other prefixes
 	ctx := context.Background()
-	store, err := session.NewDynamoStore(ctx)
-	if err != nil {
-		panic("failed to initialize session store: " + err.Error())
-	}
+
 	// OIDC client
 	oidcClient, err := oidc.NewOIDCClient(ctx)
 	if err != nil {
 		panic("failed to initialize OIDC client: " + err.Error())
 	}
-	stsClient, err := awscreds.NewSTSClient(ctx)
+	stsClient, err := awsutils.NewSTSClient(ctx)
+	// stsClient, err := &awsutils.MockSTSClient{}, nil
 	if err != nil {
 		panic("failed to initialize STS client: " + err.Error())
 	}
 
-	h := handler.NewAwsCredsHandler(store, oidcClient, stsClient)
+	h := handler.NewAwsCredsHandler(oidcClient, stsClient)
 	lambda.Start(h.Serve)
 }

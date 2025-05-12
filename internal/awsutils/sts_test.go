@@ -1,4 +1,4 @@
-package awscreds
+package awsutils
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 )
 
 func TestMockSTSClient(t *testing.T) {
-	mock := &MockSTSClient{}
-	ak, sk, st, err := mock.AssumeRoleWithWebIdentity(context.Background(), "arn", "sess", "token", 900)
+	stsClient := &MockSTSClient{}
+	ak, sk, st, err := stsClient.AssumeRoleWithWebIdentity(context.Background(), "arn", "sess", "token", 900)
 	assert.NoError(t, err)
 	assert.Equal(t, "mockAccessKey", ak)
 	assert.Equal(t, "mockSecretKey", sk)

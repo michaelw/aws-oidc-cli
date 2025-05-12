@@ -1,4 +1,4 @@
-// handleAwsCreds handles the /aws-creds endpoint.
+// handleAwsCreds handles the /auth endpoint.
 // It starts the OIDC flow, stores session, and long-polls for completion.
 package handler
 
@@ -6,179 +6,163 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"log"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/michaelw/aws-creds-oidc/internal/awscreds"
+	"github.com/golang-jwt/jwt/v5"
+	awscreds "github.com/michaelw/aws-creds-oidc/internal/awsutils"
 	"github.com/michaelw/aws-creds-oidc/internal/oidc"
-	"github.com/michaelw/aws-creds-oidc/internal/session"
 )
 
-// AwsCredsRequest is the input for /aws-creds.
+// AwsCredsRequest is the input for /auth.
 type AwsCredsRequest struct {
-	ClientID  string `json:"client_id"`
-	AccountID string `json:"account_id"`
-	RoleName  string `json:"role_name"`
+	State     string `json:"state"`
+	Challenge string `json:"challenge"`
 }
 
-// AwsCredsResponse is the output for /aws-creds.
+// AwsCredsResponse is the output for /auth.
 type AwsCredsResponse struct {
-	AccessKeyID     string `json:"access_key_id"`
-	SecretAccessKey string `json:"secret_access_key"`
-	SessionToken    string `json:"session_token"`
-	Expiration      int64  `json:"expiration"`
+	Version         int
+	AccessKeyId     string
+	SecretAccessKey string
+	SessionToken    string
+	Expiration      time.Time
 }
 
 // Handler dependencies for DI.
 type AwsCredsHandler struct {
-	SessionStore session.Store
-	OIDCClient   oidc.OIDCClient
-	STSClient    awscreds.STSClient
+	OIDCClient oidc.OIDCClient
+	STSClient  awscreds.STSClient
 }
 
-// HandleAwsCreds is the Lambda handler for /aws-creds as a method.
-func (h *AwsCredsHandler) HandleAwsCreds(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var input AwsCredsRequest
-	if err := json.Unmarshal([]byte(req.Body), &input); err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "invalid input"}, nil
-	}
-
-	sessionID := fmt.Sprintf("sess-%d", time.Now().UnixNano())
-	state := fmt.Sprintf("state-%d", time.Now().UnixNano())
-	_, _, err := h.OIDCClient.StartAuth(ctx, input.ClientID, state)
-	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "oidc start error"}, nil
-	}
-
-	sess := &session.Session{
-		SessionID:   sessionID,
-		ClientID:    input.ClientID,
-		AccountID:   input.AccountID,
-		RoleName:    input.RoleName,
-		State:       state,
-		Status:      "pending",
-		AccessToken: "",
-		ExpiresAt:   time.Now().Add(10 * time.Minute).Unix(),
-	}
-	if err := h.SessionStore.Put(ctx, sess); err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "session store error"}, nil
-	}
-
-	// Respond with auth URL and poll for completion
-	pollTimeout := 60 * time.Second
-	pollInterval := 2 * time.Second
-	start := time.Now()
-	for {
-		if time.Since(start) > pollTimeout {
-			return events.APIGatewayProxyResponse{StatusCode: 408, Body: "timeout"}, nil
-		}
-		s, err := h.SessionStore.Get(ctx, sessionID)
-		if err != nil {
-			return events.APIGatewayProxyResponse{StatusCode: 500, Body: "session get error"}, nil
-		}
-		if s != nil && s.Status == "complete" && s.AccessToken != "" {
-			// Call STS
-			roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", input.AccountID, input.RoleName)
-			ak, sk, st, err := h.STSClient.AssumeRoleWithWebIdentity(ctx, roleArn, sessionID, s.AccessToken, 900)
-			if err != nil {
-				return events.APIGatewayProxyResponse{StatusCode: 500, Body: "sts error"}, nil
-			}
-			resp := AwsCredsResponse{
-				AccessKeyID:     ak,
-				SecretAccessKey: sk,
-				SessionToken:    st,
-				Expiration:      time.Now().Add(15 * time.Minute).Unix(),
-			}
-			b, _ := json.Marshal(resp)
-			return events.APIGatewayProxyResponse{StatusCode: 200, Body: string(b)}, nil
-		}
-		time.Sleep(pollInterval)
+// NewAwsCredsHandler constructs a handler with injected dependencies.
+func NewAwsCredsHandler(oidcClient oidc.OIDCClient, stsClient awscreds.STSClient) *AwsCredsHandler {
+	return &AwsCredsHandler{
+		OIDCClient: oidcClient,
+		STSClient:  stsClient,
 	}
 }
 
-// HandleCallback handles the /callback endpoint for OIDC redirect as a method of AwsCredsHandler.
-func (h *AwsCredsHandler) HandleCallback(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	code := req.QueryStringParameters["code"]
+// HandleAuth is the Lambda handler for /auth as a method.
+func (h *AwsCredsHandler) HandleAuth(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	state := req.QueryStringParameters["state"]
-	if code == "" || state == "" {
-		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing code or state"}, nil
+	challenge := req.QueryStringParameters["challenge"]
+	if state == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing state"}, nil
 	}
-	// Find session by state
-	sess, err := h.findSessionByState(ctx, state)
-	if err != nil || sess == nil {
-		return events.APIGatewayProxyResponse{StatusCode: 404, Body: "session not found"}, nil
+	if challenge == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing challenge"}, nil
 	}
-	// OIDC client
-	var oidcClient oidc.OIDCClient
-	if h.OIDCClient != nil {
-		oidcClient = h.OIDCClient
-	} else {
-		oidcClient, err = oidc.NewOIDCClient(ctx)
-		if err != nil {
-			return events.APIGatewayProxyResponse{StatusCode: 500, Body: "oidc error"}, nil
-		}
-	}
-	// For demo, code_verifier is not persisted; in production, store it in session
-	accessToken, err := oidcClient.ExchangeCode(ctx, code, "")
+
+	authURL, err := h.OIDCClient.StartAuth(ctx, challenge, state)
 	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "oidc exchange error"}, nil
+		return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("OIDC start error: %v", err)}, nil
 	}
-	sess.AccessToken = accessToken
-	sess.Status = "complete"
-	err = h.SessionStore.Update(ctx, sess)
-	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: "session update error"}, nil
-	}
-	return events.APIGatewayProxyResponse{StatusCode: 200, Body: "session complete"}, nil
+
+	return events.APIGatewayProxyResponse{StatusCode: 302,
+		Headers: map[string]string{
+			"Location": authURL,
+		},
+	}, nil
 }
 
-// findSessionByState finds a session by state (inefficient scan; optimize for production).
-func (h *AwsCredsHandler) findSessionByState(ctx context.Context, state string) (*session.Session, error) {
-	ds, ok := h.SessionStore.(*session.DynamoStore)
-	if !ok {
-		return nil, nil
+// HandleCreds handles the /creds endpoint for OIDC redirect as a method of AwsCredsHandler.
+// Now expects POST with JSON body: { code, verifier, account, role }
+func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var body struct {
+		Code     string `json:"code"`
+		Verifier string `json:"verifier"`
+		Account  string `json:"account"`
+		Role     string `json:"role"`
 	}
-	table := ds.TableName
-	if table == "" {
-		return nil, nil
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "invalid JSON body"}, nil
 	}
-	client := ds.Client
-	out, err := client.Scan(ctx, &dynamodb.ScanInput{
-		TableName: &table,
-	})
+	if body.Code == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing code"}, nil
+	}
+	if body.Verifier == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing verifier"}, nil
+	}
+	if body.Account == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing account ID"}, nil
+	}
+	if body.Role == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing role"}, nil
+	}
+
+	// Exchange code for token
+	token, err := h.OIDCClient.ExchangeCode(ctx, body.Code, body.Verifier)
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: err.Error()}, nil
+	}
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok || idToken == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "no id_token in token response"}, nil
+	}
+	log.Printf("ID Token: %s", idToken)
+
+	// Parse email from idToken
+	claims, err := parseIDTokenClaims(idToken)
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: fmt.Sprintf("failed to parse id_token: %v", err)}, nil
+	}
+	if claims.Email == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "email claim not found in id_token"}, nil
+	}
+	email := claims.Email
+	log.Printf("Email: %s", email)
+
+	// Call STS
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", body.Account, body.Role)
+	duration := 30 * time.Minute
+	exp := time.Now().Add(duration)
+	ak, sk, st, err := h.STSClient.AssumeRoleWithWebIdentity(ctx, roleArn, email, idToken, int32(duration.Seconds()))
+	if err != nil {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: err.Error()}, nil
+	}
+
+	// Return credentials in AWS credential_process format
+	resp := AwsCredsResponse{
+		Version:         1,
+		AccessKeyId:     ak,
+		SecretAccessKey: sk,
+		SessionToken:    st,
+		Expiration:      exp,
+	}
+	b, _ := json.Marshal(resp)
+	return events.APIGatewayProxyResponse{StatusCode: 200,
+		Body:    string(b),
+		Headers: map[string]string{"Content-Type": "application/json"},
+	}, nil
+}
+
+// IDTokenClaims holds the claims we care about from the ID token
+// (expand as needed for more claims)
+type IDTokenClaims struct {
+	Email string `json:"email"`
+	jwt.RegisteredClaims
+}
+
+// parseIDTokenClaims parses a JWT and returns the claims (without verifying signature)
+func parseIDTokenClaims(idToken string) (*IDTokenClaims, error) {
+	claims := &IDTokenClaims{}
+	_, _, err := new(jwt.Parser).ParseUnverified(idToken, claims)
 	if err != nil {
 		return nil, err
 	}
-	for _, item := range out.Items {
-		var s session.Session
-		err := attributevalue.UnmarshalMap(item, &s)
-		if err == nil && strings.EqualFold(s.State, state) {
-			return &s, nil
-		}
-	}
-	return nil, nil
+	return claims, nil
 }
 
 // Serve routes API Gateway requests to the appropriate handler method.
 func (h *AwsCredsHandler) Serve(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	switch req.Path {
-	case "/aws-creds":
-		return h.HandleAwsCreds(ctx, req)
-	case "/callback":
-		return h.HandleCallback(ctx, req)
+	case "/auth":
+		return h.HandleAuth(ctx, req)
+	case "/creds":
+		return h.HandleCreds(ctx, req)
 	default:
 		return events.APIGatewayProxyResponse{StatusCode: 404}, nil
-	}
-}
-
-// NewAwsCredsHandler constructs a handler with injected dependencies.
-func NewAwsCredsHandler(store session.Store, oidcClient oidc.OIDCClient, stsClient awscreds.STSClient) *AwsCredsHandler {
-	return &AwsCredsHandler{
-		SessionStore: store,
-		OIDCClient:   oidcClient,
-		STSClient:    stsClient,
 	}
 }

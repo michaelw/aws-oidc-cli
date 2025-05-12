@@ -1,4 +1,4 @@
-package awscreds
+package awsutils
 
 import (
 	"context"

@@ -2,8 +2,6 @@ package oidc
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"os"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -12,8 +10,8 @@ import (
 
 // OIDCClient defines the interface for OIDC operations.
 type OIDCClient interface {
-	StartAuth(ctx context.Context, clientID, state string) (authURL, codeVerifier string, err error)
-	ExchangeCode(ctx context.Context, code, codeVerifier string) (accessToken string, err error)
+	StartAuth(ctx context.Context, codeChallengeS256, state string) (authURL string, err error)
+	ExchangeCode(ctx context.Context, code, codeVerifier string) (*oauth2.Token, error)
 }
 
 // oidcClient implements OIDCClient using go-oidc and oauth2.
@@ -41,30 +39,17 @@ func NewOIDCClient(ctx context.Context) (OIDCClient, error) {
 	return &oidcClient{Provider: provider, OAuthConfig: config}, nil
 }
 
-func generatePKCE() (string, string, error) {
-	codeVerifier := make([]byte, 32)
-	_, err := rand.Read(codeVerifier)
-	if err != nil {
-		return "", "", err
-	}
-	verifier := base64.RawURLEncoding.EncodeToString(codeVerifier)
-	challenge := verifier // For simplicity, use plain (not S256) for now
-	return verifier, challenge, nil
+func (c *oidcClient) StartAuth(ctx context.Context, challengeS256, state string) (string, error) {
+	url := c.OAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline,
+		oauth2.SetAuthURLParam("code_challenge", challengeS256),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
+	return url, nil
 }
 
-func (c *oidcClient) StartAuth(ctx context.Context, clientID, state string) (string, string, error) {
-	verifier, challenge, err := generatePKCE()
+func (c *oidcClient) ExchangeCode(ctx context.Context, code, codeVerifier string) (*oauth2.Token, error) {
+	tok, err := c.OAuthConfig.Exchange(ctx, code, oauth2.VerifierOption(codeVerifier))
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
-	url := c.OAuthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("code_challenge", challenge), oauth2.SetAuthURLParam("code_challenge_method", "plain"))
-	return url, verifier, nil
-}
-
-func (c *oidcClient) ExchangeCode(ctx context.Context, code, codeVerifier string) (string, error) {
-	tok, err := c.OAuthConfig.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", codeVerifier))
-	if err != nil {
-		return "", err
-	}
-	return tok.AccessToken, nil
+	return tok, nil
 }
