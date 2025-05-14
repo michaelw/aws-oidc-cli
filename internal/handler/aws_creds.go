@@ -117,8 +117,7 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 	// Call STS
 	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", body.Account, body.Role)
 	duration := 30 * time.Minute
-	exp := time.Now().Add(duration)
-	ak, sk, st, err := h.STSClient.AssumeRoleWithWebIdentity(ctx, roleArn, email, idToken, int32(duration.Seconds()))
+	ak, sk, st, exp, err := h.STSClient.AssumeRoleWithWebIdentity(ctx, roleArn, email, idToken, int32(duration.Seconds()))
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: err.Error()}, nil
 	}
@@ -129,7 +128,7 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 		AccessKeyId:     ak,
 		SecretAccessKey: sk,
 		SessionToken:    st,
-		Expiration:      exp,
+		Expiration:      *exp,
 	}
 	b, _ := json.Marshal(resp)
 	return events.APIGatewayProxyResponse{StatusCode: 200,

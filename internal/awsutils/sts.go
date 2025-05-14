@@ -2,6 +2,7 @@ package awsutils
 
 import (
 	"context"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -10,7 +11,7 @@ import (
 
 // STSClient defines the interface for AWS STS operations.
 type STSClient interface {
-	AssumeRoleWithWebIdentity(ctx context.Context, roleArn, roleSessionName, webIdentityToken string, durationSeconds int32) (accessKeyID, secretAccessKey, sessionToken string, err error)
+	AssumeRoleWithWebIdentity(ctx context.Context, roleArn, roleSessionName, webIdentityToken string, durationSeconds int32) (accessKeyID, secretAccessKey, sessionToken string, expiration *time.Time, err error)
 }
 
 // stsClient implements STSClient using AWS SDK v2.
@@ -26,7 +27,7 @@ func NewSTSClient(ctx context.Context) (STSClient, error) {
 	return &stsClient{Client: sts.NewFromConfig(cfg)}, nil
 }
 
-func (r *stsClient) AssumeRoleWithWebIdentity(ctx context.Context, roleArn, roleSessionName, webIdentityToken string, durationSeconds int32) (string, string, string, error) {
+func (r *stsClient) AssumeRoleWithWebIdentity(ctx context.Context, roleArn, roleSessionName, webIdentityToken string, durationSeconds int32) (string, string, string, *time.Time, error) {
 	out, err := r.Client.AssumeRoleWithWebIdentity(ctx, &sts.AssumeRoleWithWebIdentityInput{
 		RoleArn:          aws.String(roleArn),
 		RoleSessionName:  aws.String(roleSessionName),
@@ -34,7 +35,7 @@ func (r *stsClient) AssumeRoleWithWebIdentity(ctx context.Context, roleArn, role
 		DurationSeconds:  aws.Int32(durationSeconds),
 	})
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", nil, err
 	}
-	return aws.ToString(out.Credentials.AccessKeyId), aws.ToString(out.Credentials.SecretAccessKey), aws.ToString(out.Credentials.SessionToken), nil
+	return aws.ToString(out.Credentials.AccessKeyId), aws.ToString(out.Credentials.SecretAccessKey), aws.ToString(out.Credentials.SessionToken), out.Credentials.Expiration, nil
 }
