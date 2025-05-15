@@ -75,13 +75,7 @@ func (h *AwsCredsHandler) HandleAuth(ctx context.Context, req events.APIGatewayP
 // HandleCreds handles the /creds endpoint for OIDC redirect as a method of AwsCredsHandler.
 // Now expects POST with JSON body: { code, verifier, account, role, redirect_uri }
 func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	var body struct {
-		Code        string `json:"code"`
-		Verifier    string `json:"verifier"`
-		Account     string `json:"account"`
-		Role        string `json:"role"`
-		RedirectURI string `json:"redirect_uri"`
-	}
+	var body AwsOidcCredsRequest
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "invalid JSON body"}, nil
 	}
@@ -130,7 +124,7 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 	}
 
 	// Return credentials in AWS credential_process format
-	resp := AwsCredsResponse{
+	resp := AwsOidcCredsResponse{
 		Version:         1,
 		AccessKeyId:     ak,
 		SecretAccessKey: sk,
