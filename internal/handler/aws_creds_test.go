@@ -63,7 +63,7 @@ func TestHandleAuth_MissingParams(t *testing.T) {
 
 func TestHandleCreds_MissingFields(t *testing.T) {
 	h := newTestHandler(nil, nil, nil)
-	base := AwsOidcCredsRequest{
+	base := CredsRequest{
 		Code:        "c",
 		Verifier:    "v",
 		Account:     "a",
@@ -72,14 +72,14 @@ func TestHandleCreds_MissingFields(t *testing.T) {
 	}
 	fields := []struct {
 		name   string
-		modify func(*AwsOidcCredsRequest)
+		modify func(*CredsRequest)
 		errMsg string
 	}{
-		{"missing code", func(b *AwsOidcCredsRequest) { b.Code = "" }, "missing code"},
-		{"missing verifier", func(b *AwsOidcCredsRequest) { b.Verifier = "" }, "missing verifier"},
-		{"missing account", func(b *AwsOidcCredsRequest) { b.Account = "" }, "missing account ID"},
-		{"missing role", func(b *AwsOidcCredsRequest) { b.Role = "" }, "missing role"},
-		{"missing redirect_uri", func(b *AwsOidcCredsRequest) { b.RedirectURI = "" }, "missing redirect_uri"},
+		{"missing code", func(b *CredsRequest) { b.Code = "" }, "missing code"},
+		{"missing verifier", func(b *CredsRequest) { b.Verifier = "" }, "missing verifier"},
+		{"missing account", func(b *CredsRequest) { b.Account = "" }, "missing account ID"},
+		{"missing role", func(b *CredsRequest) { b.Role = "" }, "missing role"},
+		{"missing redirect_uri", func(b *CredsRequest) { b.RedirectURI = "" }, "missing redirect_uri"},
 	}
 	for _, f := range fields {
 		t.Run(f.name, func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestHandleCreds_STSError(t *testing.T) {
 	tok := &oauth2.Token{}
 	tok = tok.WithExtra(map[string]any{"id_token": createTestJWT(t, "foo@bar.com")})
 	h := newTestHandler(errors.New("sts error"), tok, nil)
-	b := AwsOidcCredsRequest{
+	b := CredsRequest{
 		Code:        "c",
 		Verifier:    "v",
 		Account:     "a",
@@ -124,7 +124,7 @@ func TestHandleCreds_ValidFlow(t *testing.T) {
 	tok := &oauth2.Token{}
 	tok = tok.WithExtra(map[string]any{"id_token": createTestJWT(t, "foo@bar.com")})
 	h := newTestHandler(nil, tok, nil)
-	b := AwsOidcCredsRequest{
+	b := CredsRequest{
 		Code:        "c",
 		Verifier:    "v",
 		Account:     "a",

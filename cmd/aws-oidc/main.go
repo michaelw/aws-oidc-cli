@@ -191,7 +191,7 @@ func generatePKCE() (challenge, verifier string) {
 }
 
 // exchangeCodeForCreds calls the /creds endpoint and returns credentials
-func exchangeCodeForCreds(apiURL, code, verifier, account, role, redirectURI string) (*handler.AwsOidcCredsResponse, error) {
+func exchangeCodeForCreds(apiURL, code, verifier, account, role, redirectURI string) (*handler.CredsResponse, error) {
 	// Compose request body
 	body := map[string]string{
 		"code":         code,
@@ -216,7 +216,7 @@ func exchangeCodeForCreds(apiURL, code, verifier, account, role, redirectURI str
 		return nil, fmt.Errorf("/creds error: %s", string(b))
 	}
 
-	var creds handler.AwsOidcCredsResponse
+	var creds handler.CredsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&creds); err != nil {
 		return nil, fmt.Errorf("failed to decode credentials: %w", err)
 	}

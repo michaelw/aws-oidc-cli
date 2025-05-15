@@ -4,15 +4,15 @@ import (
 	"time"
 )
 
-// AwsOidcAuthRequest is the input for /auth.
-type AwsOidcAuthRequest struct {
+// AuthRequest is the input for /auth.
+type AuthRequest struct {
 	Challenge   string `json:"challenge"`
 	State       string `json:"state"`
 	RedirectURI string `json:"redirect_uri"`
 }
 
-// AwsOidcCredsRequest is the input for /creds POST endpoint.
-type AwsOidcCredsRequest struct {
+// CredsRequest is the input for /creds POST endpoint.
+type CredsRequest struct {
 	Code        string `json:"code"`
 	Verifier    string `json:"verifier"`
 	Account     string `json:"account"`
@@ -20,8 +20,8 @@ type AwsOidcCredsRequest struct {
 	RedirectURI string `json:"redirect_uri"`
 }
 
-// AwsOidcCredsResponse is the output for /auth.
-type AwsOidcCredsResponse struct {
+// CredsResponse is the output for /auth.
+type CredsResponse struct {
 	Version         int
 	AccessKeyId     string
 	SecretAccessKey string
