@@ -5,22 +5,28 @@ This project is an AWS SAM serverless Go application that provides AWS credentia
 - `/auth`: Constructs the OIDC authentication URL.
 - `/creds`: Receives the code, verifies the state, exchanges the token for AWS credentials and returns them.
 
+## Prerequisites
+
+Ensure the following build dependencies are installed:
+
+- golang
+- aws-sam-cli
+
 ## Getting Started
 
-1. Install the AWS SAM CLI and Go 1.x.
-2. Build the project:
+1. Build the project:
 
    ```zsh
    make
    ```
 
-3. Deploy to AWS:
+2. Deploy to AWS:
 
    ```zsh
    sam deploy --guided
    ```
 
-4. Create `~/.config/aws-oidc/oidc-providers.json`:
+3. Create `~/.config/aws-oidc/oidc-providers.json`:
 
    ```json
    {
@@ -33,22 +39,20 @@ This project is an AWS SAM serverless Go application that provides AWS credentia
    }
    ```
 
-5. Add this to `~/.aws/config`:
+4. Add this to `~/.aws/config`:
 
    ```
    [profile oidc-test:administrator]
    credential_process = /path/to/aws-oidc process --provider=test-provider --role=oidc-administrator-access --account=1234567890
    ```
 
-6. Test with AWS CLI:
+5. Test with AWS CLI:
 
    ```zsh
    aws sts get-caller-identity --profile oidc-test:administrator
    ```
 
 ## Development
-
-Ensure the foc
 
 ### Local Testing
 

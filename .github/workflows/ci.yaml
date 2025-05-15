@@ -1,0 +1,86 @@
+name: CI
+
+permissions:
+  contents: write
+
+env:
+  GO_VERSION: '1.24'
+  PYTHON_VERSION: '3.11'
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'  # Match semver tags like v1.2.3
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          cache: pip
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: make test
+
+      - name: Build AWS SAM application
+        run: sam build
+
+      - name: Package SAM build output for Lambda
+        run: |
+          cd .aws-sam/build
+          zip -r ../../aws-oidc-lambda.zip .
+
+      - name: Run GoReleaser snapshot (PRs and non-tag builds)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean --snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run GoReleaser release (tag builds)
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload GoReleaser aws-oidc artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aws-oidc-cli
+          path: dist/aws-oidc*
+          if-no-files-found: warn
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aws-oidc-lambda
+          path: |
+            .aws-sam/build
+          if-no-files-found: warn
