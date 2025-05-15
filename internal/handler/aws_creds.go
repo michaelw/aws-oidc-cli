@@ -1,5 +1,3 @@
-// handleAwsCreds handles the /auth endpoint.
-// It starts the OIDC flow, stores session, and long-polls for completion.
 package handler
 
 import (
@@ -10,7 +8,7 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/golang-jwt/jwt/v5"
-	awscreds "github.com/michaelw/aws-creds-oidc/internal/awsutils"
+	"github.com/michaelw/aws-creds-oidc/internal/awsutils"
 	"github.com/michaelw/aws-creds-oidc/internal/oidc"
 	"golang.org/x/oauth2"
 )
@@ -18,11 +16,11 @@ import (
 // AwsCredsHandler handles OIDC/AWS credential vending
 type AwsCredsHandler struct {
 	OIDCClient oidc.OIDCClient
-	STSClient  awscreds.STSClient
+	STSClient  awsutils.STSClient
 }
 
 // NewAwsCredsHandler constructs a handler with injected dependencies.
-func NewAwsCredsHandler(oidcClient oidc.OIDCClient, stsClient awscreds.STSClient) *AwsCredsHandler {
+func NewAwsCredsHandler(oidcClient oidc.OIDCClient, stsClient awsutils.STSClient) *AwsCredsHandler {
 	return &AwsCredsHandler{
 		OIDCClient: oidcClient,
 		STSClient:  stsClient,
