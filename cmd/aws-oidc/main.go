@@ -19,6 +19,8 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/pkg/browser"
 	"golang.org/x/oauth2"
+
+	"github.com/michaelw/aws-creds-oidc/internal/handler"
 )
 
 // CLI config using Kong
@@ -41,14 +43,6 @@ type ProviderConfig struct {
 
 type Providers struct {
 	Providers []ProviderConfig `json:"providers"`
-}
-
-type AwsCredsResponse struct {
-	Version         int
-	AccessKeyId     string
-	SecretAccessKey string
-	SessionToken    string
-	Expiration      time.Time
 }
 
 func main() {
@@ -175,7 +169,7 @@ func generatePKCE() (challenge, verifier string) {
 }
 
 // exchangeCodeForCreds calls the /creds endpoint and returns credentials
-func exchangeCodeForCreds(apiURL, code, verifier, account, role string) (*AwsCredsResponse, error) {
+func exchangeCodeForCreds(apiURL, code, verifier, account, role string) (*handler.AwsCredsResponse, error) {
 	// Compose request body
 	body := map[string]string{
 		"code":     code,
@@ -199,7 +193,7 @@ func exchangeCodeForCreds(apiURL, code, verifier, account, role string) (*AwsCre
 		return nil, fmt.Errorf("/creds error: %s", string(b))
 	}
 
-	var creds AwsCredsResponse
+	var creds handler.AwsCredsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&creds); err != nil {
 		return nil, fmt.Errorf("failed to decode credentials: %w", err)
 	}
