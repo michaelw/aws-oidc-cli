@@ -1,0 +1,41 @@
+# GoReleaser config for aws-oidc CLI
+version: 2
+project_name: aws-oidc
+builds:
+  - id: aws-oidc
+    main: ./cmd/aws-oidc/main.go
+    binary: aws-oidc
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+archives:
+  - id: aws-oidc-archive
+    ids:
+      - aws-oidc
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}_v{{ .Arm }}{{ end }}'
+    formats: zip
+    format_overrides:
+      - goos: linux
+        formats: tar.gz
+    files:
+      - LICENSE
+      - README.md
+checksum:
+  name_template: "checksums.txt"
+changelog:
+  sort: desc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+release:
+  extra_files:
+    - glob: aws-oidc-lambda.zip

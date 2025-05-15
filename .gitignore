@@ -29,6 +29,10 @@
 
 # SAM build artifacts
 /.aws-sam/
+/aws-oidc-lambda.zip
+
+# goreleaser
+/dist/
 
 # IDE/editor swap files
 *~
@@ -44,6 +48,3 @@ Thumbs.db
 
 # Test cache
 *.testcache
-
-# Go module files backup
-go.sum
