@@ -23,6 +23,29 @@ import (
 	"github.com/michaelw/aws-creds-oidc/internal/handler"
 )
 
+const authCompleteHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+  <title>Login Status</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 80px; }
+  </style>
+  <script>
+    // Remove query parameters from the URL after successful auth
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  </script>
+</head>
+<body>
+  <div style="font-size:1.3em;">%s</div>
+</body>
+</html>
+`
+
 // CLI config using Kong
 var CLI struct {
 	Process struct {
@@ -93,7 +116,7 @@ func main() {
 			http.Error(w, "missing code", http.StatusBadRequest)
 			return
 		}
-		fmt.Fprintf(w, "Authentication complete. You may close this window.")
+		fmt.Fprintf(w, authCompleteHTML, "Authentication complete.  You may close this window.")
 		codeCh <- code
 	})
 
