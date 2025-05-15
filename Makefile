@@ -13,9 +13,14 @@ deploy: build
 
 .PHONY: test
 test:
-	go test ./...
+	go test -coverprofile=cover.out ./...
+
+.PHONY: cover
+cover: test
+	go tool cover -func=cover.out
 
 .PHONY: clean
 clean:
 	$(RM) aws-oidc
 	$(RM) -r .aws-sam/
+	$(RM) cover.out
