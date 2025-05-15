@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/mitchellh/go-homedir"
 	"github.com/pkg/browser"
 	"golang.org/x/oauth2"
 
@@ -54,7 +55,7 @@ var CLI struct {
 		Account   string `help:"AWS Account ID" required:""`
 		UseSecret bool   `help:"Use secret for code verifier (optional)"`
 	} `cmd:"process" help:"Process OIDC flow and vend AWS credentials"`
-	Config string `help:"Path to config file" default:"oidc-providers.json"`
+	Config string `help:"Path to config file" default:"~/.config/aws-oidc/oidc-providers.json"`
 }
 
 // ProviderConfig holds API gateway URL for a provider
@@ -77,7 +78,11 @@ func main() {
 	}
 
 	// Load providers config
-	file, err := os.Open(CLI.Config)
+	configPath, err := homedir.Expand(CLI.Config)
+	if err != nil {
+		log.Fatalf("failed to expand config path: %v", err)
+	}
+	file, err := os.Open(configPath)
 	if err != nil {
 		log.Fatalf("failed to open config: %v", err)
 	}
