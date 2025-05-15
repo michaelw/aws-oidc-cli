@@ -6,26 +6,42 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	awscreds "github.com/michaelw/aws-creds-oidc/internal/awsutils"
-	"github.com/michaelw/aws-creds-oidc/internal/oidc"
+	"golang.org/x/oauth2"
 )
 
 // Handler dependencies for DI.
 type AwsCredsHandler struct {
-	OIDCClient oidc.OIDCClient
-	STSClient  awscreds.STSClient
+	Provider     *oidc.Provider
+	ClientID     string
+	ClientSecret string
+	STSClient    awscreds.STSClient
 }
 
 // NewAwsCredsHandler constructs a handler with injected dependencies.
-func NewAwsCredsHandler(oidcClient oidc.OIDCClient, stsClient awscreds.STSClient) *AwsCredsHandler {
+func NewAwsCredsHandler(provider *oidc.Provider, clientID, clientSecret string, stsClient awscreds.STSClient) *AwsCredsHandler {
 	return &AwsCredsHandler{
-		OIDCClient: oidcClient,
-		STSClient:  stsClient,
+		Provider:     provider,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		STSClient:    stsClient,
+	}
+}
+
+// Serve routes API Gateway requests to the appropriate handler method.
+func (h *AwsCredsHandler) Serve(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	switch req.Path {
+	case "/auth":
+		return h.HandleAuth(ctx, req)
+	case "/creds":
+		return h.HandleCreds(ctx, req)
+	default:
+		return events.APIGatewayProxyResponse{StatusCode: 404}, nil
 	}
 }
 
@@ -33,17 +49,21 @@ func NewAwsCredsHandler(oidcClient oidc.OIDCClient, stsClient awscreds.STSClient
 func (h *AwsCredsHandler) HandleAuth(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	state := req.QueryStringParameters["state"]
 	challenge := req.QueryStringParameters["challenge"]
+	redirectURI := req.QueryStringParameters["redirect_uri"]
 	if state == "" {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing state"}, nil
 	}
 	if challenge == "" {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing challenge"}, nil
 	}
-
-	authURL, err := h.OIDCClient.StartAuth(ctx, challenge, state)
-	if err != nil {
-		return events.APIGatewayProxyResponse{StatusCode: 500, Body: fmt.Sprintf("OIDC start error: %v", err)}, nil
+	if redirectURI == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing redirect_uri"}, nil
 	}
+
+	config := h.oauth2Config(redirectURI)
+	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOnline,
+		oauth2.SetAuthURLParam("code_challenge", challenge),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
 
 	return events.APIGatewayProxyResponse{StatusCode: 302,
 		Headers: map[string]string{
@@ -53,13 +73,14 @@ func (h *AwsCredsHandler) HandleAuth(ctx context.Context, req events.APIGatewayP
 }
 
 // HandleCreds handles the /creds endpoint for OIDC redirect as a method of AwsCredsHandler.
-// Now expects POST with JSON body: { code, verifier, account, role }
+// Now expects POST with JSON body: { code, verifier, account, role, redirect_uri }
 func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 	var body struct {
-		Code     string `json:"code"`
-		Verifier string `json:"verifier"`
-		Account  string `json:"account"`
-		Role     string `json:"role"`
+		Code        string `json:"code"`
+		Verifier    string `json:"verifier"`
+		Account     string `json:"account"`
+		Role        string `json:"role"`
+		RedirectURI string `json:"redirect_uri"`
 	}
 	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "invalid JSON body"}, nil
@@ -76,9 +97,12 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 	if body.Role == "" {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing role"}, nil
 	}
+	if body.RedirectURI == "" {
+		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing redirect_uri"}, nil
+	}
 
-	// Exchange code for token
-	token, err := h.OIDCClient.ExchangeCode(ctx, body.Code, body.Verifier)
+	config := h.oauth2Config(body.RedirectURI)
+	token, err := config.Exchange(ctx, body.Code, oauth2.VerifierOption(body.Verifier))
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: err.Error()}, nil
 	}
@@ -86,7 +110,6 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 	if !ok || idToken == "" {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "no id_token in token response"}, nil
 	}
-	log.Printf("ID Token: %s", idToken)
 
 	// Parse email from idToken
 	claims, err := parseIDTokenClaims(idToken)
@@ -97,7 +120,6 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "email claim not found in id_token"}, nil
 	}
 	email := claims.Email
-	log.Printf("Email: %s", email)
 
 	// Call STS
 	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", body.Account, body.Role)
@@ -139,14 +161,13 @@ func parseIDTokenClaims(idToken string) (*IDTokenClaims, error) {
 	return claims, nil
 }
 
-// Serve routes API Gateway requests to the appropriate handler method.
-func (h *AwsCredsHandler) Serve(ctx context.Context, req events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	switch req.Path {
-	case "/auth":
-		return h.HandleAuth(ctx, req)
-	case "/creds":
-		return h.HandleCreds(ctx, req)
-	default:
-		return events.APIGatewayProxyResponse{StatusCode: 404}, nil
+// Helper to create oauth2.Config for this handler
+func (h *AwsCredsHandler) oauth2Config(redirectURI string) *oauth2.Config {
+	return &oauth2.Config{
+		ClientID:     h.ClientID,
+		ClientSecret: h.ClientSecret,
+		Endpoint:     h.Provider.Endpoint(),
+		RedirectURL:  redirectURI,
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 }

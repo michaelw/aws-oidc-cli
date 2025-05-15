@@ -4,28 +4,32 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/michaelw/aws-creds-oidc/internal/awsutils"
 	"github.com/michaelw/aws-creds-oidc/internal/handler"
-	"github.com/michaelw/aws-creds-oidc/internal/oidc"
 )
 
 func main() {
 	log.SetFlags(log.Lshortfile) // Disable timestamp and other prefixes
 	ctx := context.Background()
 
-	// OIDC client
-	oidcClient, err := oidc.NewOIDCClient(ctx)
+	issuer := os.Getenv("OIDC_ISSUER")
+	clientID := os.Getenv("OIDC_CLIENT_ID")
+	clientSecret := os.Getenv("OIDC_CLIENT_SECRET")
+	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
-		panic("failed to initialize OIDC client: " + err.Error())
+		log.Fatalf("failed to initialize OIDC provider: %v", err)
 	}
+	// OIDC client will be constructed in the handler with redirectURL from the request
+
 	stsClient, err := awsutils.NewSTSClient(ctx)
-	// stsClient, err := &awsutils.MockSTSClient{}, nil
 	if err != nil {
-		panic("failed to initialize STS client: " + err.Error())
+		log.Fatalf("failed to initialize STS client: %v", err)
 	}
 
-	h := handler.NewAwsCredsHandler(oidcClient, stsClient)
+	h := handler.NewAwsCredsHandler(provider, clientID, clientSecret, stsClient)
 	lambda.Start(h.Serve)
 }

@@ -67,7 +67,3 @@ Parameters:
     Type: String
     Description: OIDC Client Secret
     Default: ""
-  OIDCRedirectUri:
-    Type: String
-    Description: OIDC Redirect URI
-    Default: "http://127.0.0.1:8080/creds"

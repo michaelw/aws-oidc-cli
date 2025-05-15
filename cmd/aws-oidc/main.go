@@ -112,8 +112,7 @@ func main() {
 	// Begin OIDC flow (browser open, etc.)
 	challenge, verifier := generatePKCE()
 	// Construct OIDC auth URL (this would be provider-specific)
-	_ = redirectURI
-	authURL := fmt.Sprintf("%s/auth?challenge=%s&state=%s", strings.TrimSuffix(provider.ApiURL, "/"), challenge, state)
+	authURL := fmt.Sprintf("%s/auth?challenge=%s&state=%s&redirect_uri=%s", strings.TrimSuffix(provider.ApiURL, "/"), challenge, state, redirectURI)
 	fmt.Fprintf(os.Stderr, "Open the following URL in your browser to authenticate:\n  %s\n", authURL)
 	// Open the URL in the default browser
 	err = browser.OpenURL(authURL)
@@ -139,7 +138,7 @@ func main() {
 	_ = server.Shutdown(ctxTimeout)
 
 	// Exchange code for credentials
-	creds, err := exchangeCodeForCreds(provider.ApiURL, code, verifier, CLI.Process.Account, CLI.Process.Role)
+	creds, err := exchangeCodeForCreds(provider.ApiURL, code, verifier, CLI.Process.Account, CLI.Process.Role, redirectURI)
 	if err != nil {
 		log.Fatalf("failed to get credentials: %v", err)
 	}
@@ -151,7 +150,7 @@ func main() {
 
 // randomPort returns a random port between 49152–65535
 func randomPort() int {
-	return 8080 //49152 + int(time.Now().UnixNano()%int64(65535-49152))
+	return 49152 + int(time.Now().UnixNano()%int64(65535-49152))
 }
 
 // randomState returns a random string for OIDC state
@@ -169,13 +168,14 @@ func generatePKCE() (challenge, verifier string) {
 }
 
 // exchangeCodeForCreds calls the /creds endpoint and returns credentials
-func exchangeCodeForCreds(apiURL, code, verifier, account, role string) (*handler.AwsCredsResponse, error) {
+func exchangeCodeForCreds(apiURL, code, verifier, account, role, redirectURI string) (*handler.AwsCredsResponse, error) {
 	// Compose request body
 	body := map[string]string{
-		"code":     code,
-		"verifier": verifier,
-		"account":  account,
-		"role":     role,
+		"code":         code,
+		"verifier":     verifier,
+		"account":      account,
+		"role":         role,
+		"redirect_uri": redirectURI,
 	}
 	jsonBody, err := json.Marshal(body)
 	if err != nil {

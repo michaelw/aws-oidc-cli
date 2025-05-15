@@ -6,8 +6,9 @@ import (
 
 // AwsCredsRequest is the input for /auth.
 type AwsCredsRequest struct {
-	State     string `json:"state"`
-	Challenge string `json:"challenge"`
+	Challenge   string `json:"challenge"`
+	State       string `json:"state"`
+	RedirectURI string `json:"redirect_uri"`
 }
 
 // AwsCredsResponse is the output for /auth.

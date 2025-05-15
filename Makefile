@@ -1,5 +1,6 @@
 .PHONY: build
 build:
+	go build -v ./cmd/aws-oidc
 	sam build
 
 .PHONY: package
@@ -11,9 +12,10 @@ deploy: build
 	sam deploy
 
 .PHONY: test
-test: build
+test:
 	go test ./...
 
 .PHONY: clean
 clean:
-	rm -rf .aws-sam
+	$(RM) aws-oidc
+	$(RM) -r .aws-sam/
