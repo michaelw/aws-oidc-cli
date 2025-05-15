@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/aws/aws-lambda-go/lambda"
-	oidc "github.com/coreos/go-oidc/v3/oidc"
+	coreosoidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/michaelw/aws-creds-oidc/internal/awsutils"
-	"github.com/michaelw/aws-creds-oidc/internal/handler"
+	handler "github.com/michaelw/aws-creds-oidc/internal/handler"
+	"github.com/michaelw/aws-creds-oidc/internal/oidc"
 )
 
 func main() {
@@ -19,17 +20,21 @@ func main() {
 	issuer := os.Getenv("OIDC_ISSUER")
 	clientID := os.Getenv("OIDC_CLIENT_ID")
 	clientSecret := os.Getenv("OIDC_CLIENT_SECRET")
-	provider, err := oidc.NewProvider(ctx, issuer)
+	provider, err := coreosoidc.NewProvider(ctx, issuer)
 	if err != nil {
 		log.Fatalf("failed to initialize OIDC provider: %v", err)
 	}
-	// OIDC client will be constructed in the handler with redirectURL from the request
+	oidcClient := oidc.NewOIDCClient(
+		provider,
+		clientID,
+		clientSecret,
+	)
 
 	stsClient, err := awsutils.NewSTSClient(ctx)
 	if err != nil {
 		log.Fatalf("failed to initialize STS client: %v", err)
 	}
 
-	h := handler.NewAwsCredsHandler(provider, clientID, clientSecret, stsClient)
+	h := handler.NewAwsCredsHandler(oidcClient, stsClient)
 	lambda.Start(h.Serve)
 }

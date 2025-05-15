@@ -9,27 +9,23 @@ import (
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
-	oidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	awscreds "github.com/michaelw/aws-creds-oidc/internal/awsutils"
+	"github.com/michaelw/aws-creds-oidc/internal/oidc"
 	"golang.org/x/oauth2"
 )
 
-// Handler dependencies for DI.
+// AwsCredsHandler handles OIDC/AWS credential vending
 type AwsCredsHandler struct {
-	Provider     *oidc.Provider
-	ClientID     string
-	ClientSecret string
-	STSClient    awscreds.STSClient
+	OIDCClient oidc.OIDCClient
+	STSClient  awscreds.STSClient
 }
 
 // NewAwsCredsHandler constructs a handler with injected dependencies.
-func NewAwsCredsHandler(provider *oidc.Provider, clientID, clientSecret string, stsClient awscreds.STSClient) *AwsCredsHandler {
+func NewAwsCredsHandler(oidcClient oidc.OIDCClient, stsClient awscreds.STSClient) *AwsCredsHandler {
 	return &AwsCredsHandler{
-		Provider:     provider,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		STSClient:    stsClient,
+		OIDCClient: oidcClient,
+		STSClient:  stsClient,
 	}
 }
 
@@ -60,7 +56,7 @@ func (h *AwsCredsHandler) HandleAuth(ctx context.Context, req events.APIGatewayP
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing redirect_uri"}, nil
 	}
 
-	config := h.oauth2Config(redirectURI)
+	config := h.OIDCClient.NewConfig(redirectURI)
 	authURL := config.AuthCodeURL(state, oauth2.AccessTypeOnline,
 		oauth2.SetAuthURLParam("code_challenge", challenge),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"))
@@ -95,8 +91,7 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: "missing redirect_uri"}, nil
 	}
 
-	config := h.oauth2Config(body.RedirectURI)
-	token, err := config.Exchange(ctx, body.Code, oauth2.VerifierOption(body.Verifier))
+	token, err := h.OIDCClient.ExchangeCode(ctx, body.Code, body.Verifier, body.RedirectURI)
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: err.Error()}, nil
 	}
@@ -153,15 +148,4 @@ func parseIDTokenClaimsUnverified(idToken string) (*IDTokenClaims, error) {
 		return nil, err
 	}
 	return claims, nil
-}
-
-// Helper to create oauth2.Config for this handler
-func (h *AwsCredsHandler) oauth2Config(redirectURI string) *oauth2.Config {
-	return &oauth2.Config{
-		ClientID:     h.ClientID,
-		ClientSecret: h.ClientSecret,
-		Endpoint:     h.Provider.Endpoint(),
-		RedirectURL:  redirectURI,
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
-	}
 }
