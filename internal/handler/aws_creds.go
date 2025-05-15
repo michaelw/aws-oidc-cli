@@ -106,7 +106,7 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 	}
 
 	// Parse email from idToken
-	claims, err := parseIDTokenClaims(idToken)
+	claims, err := parseIDTokenClaimsUnverified(idToken)
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: fmt.Sprintf("failed to parse id_token: %v", err)}, nil
 	}
@@ -117,7 +117,7 @@ func (h *AwsCredsHandler) HandleCreds(ctx context.Context, req events.APIGateway
 
 	// Call STS
 	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", body.Account, body.Role)
-	duration := 30 * time.Minute
+	duration := 30 * time.Minute // must be > 15 minutes, otherwise awscli will attempt to immediately refresh the token
 	ak, sk, st, exp, err := h.STSClient.AssumeRoleWithWebIdentity(ctx, roleArn, email, idToken, int32(duration.Seconds()))
 	if err != nil {
 		return events.APIGatewayProxyResponse{StatusCode: 400, Body: err.Error()}, nil
@@ -145,8 +145,8 @@ type IDTokenClaims struct {
 	jwt.RegisteredClaims
 }
 
-// parseIDTokenClaims parses a JWT and returns the claims (without verifying signature)
-func parseIDTokenClaims(idToken string) (*IDTokenClaims, error) {
+// parseIDTokenClaimsUnverified parses a JWT and returns the claims (without verifying signature)
+func parseIDTokenClaimsUnverified(idToken string) (*IDTokenClaims, error) {
 	claims := &IDTokenClaims{}
 	_, _, err := new(jwt.Parser).ParseUnverified(idToken, claims)
 	if err != nil {
