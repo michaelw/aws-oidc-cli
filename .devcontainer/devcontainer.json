@@ -13,8 +13,7 @@
         "go.toolsManagement.autoUpdate": true,
         "go.useLanguageServer": true,
         "go.lintTool": "golangci-lint",
-        "go.lintOnSave": "package",
-        "go.testOnSave": true
+        "go.lintOnSave": "package"
       },
       "extensions": [
         "golang.Go",
