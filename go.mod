@@ -1,6 +1,6 @@
 module github.com/michaelw/aws-creds-oidc
 
-go 1.24.3
+go 1.24.2
 
 require (
 	github.com/alecthomas/kong v1.11.0
