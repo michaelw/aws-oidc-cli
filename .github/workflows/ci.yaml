@@ -24,9 +24,9 @@ jobs:
         with:
           cache: pip
           python-version: ${{ env.PYTHON_VERSION }}
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
       - uses: pre-commit/action@v3.0.1
-      - run: pip install -r requirements.txt
 
       - name: Set up Go
         uses: actions/setup-go@v5
