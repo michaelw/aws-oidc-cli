@@ -44,7 +44,6 @@ Resources:
           OIDC_ISSUER: !Ref OIDCIssuer
           OIDC_CLIENT_ID: !Ref OIDCClientId
           OIDC_CLIENT_SECRET: !Ref OIDCClientSecret
-          OIDC_REDIRECT_URI: !Ref OIDCRedirectUri
 
 Outputs:
   AwsCredsAPI:

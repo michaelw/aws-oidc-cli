@@ -5,7 +5,7 @@ build:
 
 .PHONY: package
 package: build
-	sam package 
+	sam package
 
 .PHONY: deploy
 deploy: build
