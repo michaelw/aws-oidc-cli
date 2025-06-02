@@ -4,7 +4,7 @@ go 1.24.2
 
 require (
 	github.com/alecthomas/kong v1.11.0
-	github.com/aws/aws-lambda-go v1.48.0
+	github.com/aws/aws-lambda-go v1.49.0
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.19
