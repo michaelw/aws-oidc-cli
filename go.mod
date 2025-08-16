@@ -15,7 +15,7 @@ require (
 	golang.org/x/oauth2 v0.30.0
 )
 
-require golang.org/x/crypto v0.39.0 // indirect
+require golang.org/x/crypto v0.41.0 // indirect
 
 require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70 // indirect
@@ -32,6 +32,6 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
