@@ -1,2 +1,2 @@
-aws-sam-cli==1.140.0
+aws-sam-cli==1.142.1
 pre-commit==4.2.0
