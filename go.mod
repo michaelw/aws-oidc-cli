@@ -15,7 +15,7 @@ require (
 	golang.org/x/oauth2 v0.30.0
 )
 
-require golang.org/x/crypto v0.39.0 // indirect
+require golang.org/x/crypto v0.41.0 // indirect
 
 require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.70 // indirect
