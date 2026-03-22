@@ -27,7 +27,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.28.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.33.0 // indirect
-	github.com/aws/smithy-go v1.22.5 // indirect
+	github.com/aws/smithy-go v1.24.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.2 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
