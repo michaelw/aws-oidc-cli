@@ -11,7 +11,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/oauth2 v0.30.0
 )
 
