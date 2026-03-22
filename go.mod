@@ -1,4 +1,4 @@
-module github.com/michaelw/aws-creds-oidc
+module github.com/michaelw/aws-oidc-cli
 
 go 1.25.0
 

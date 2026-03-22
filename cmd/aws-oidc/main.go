@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/browser"
 	"golang.org/x/oauth2"
 
-	"github.com/michaelw/aws-creds-oidc/internal/handler"
+	"github.com/michaelw/aws-oidc-cli/internal/handler"
 )
 
 const authCompleteHTML = `

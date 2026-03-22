@@ -8,9 +8,9 @@ import (
 
 	"github.com/aws/aws-lambda-go/lambda"
 	coreosoidc "github.com/coreos/go-oidc/v3/oidc"
-	"github.com/michaelw/aws-creds-oidc/internal/awsutils"
-	handler "github.com/michaelw/aws-creds-oidc/internal/handler"
-	"github.com/michaelw/aws-creds-oidc/internal/oidc"
+	"github.com/michaelw/aws-oidc-cli/internal/awsutils"
+	handler "github.com/michaelw/aws-oidc-cli/internal/handler"
+	"github.com/michaelw/aws-oidc-cli/internal/oidc"
 )
 
 func main() {
