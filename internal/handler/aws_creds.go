@@ -8,8 +8,8 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/michaelw/aws-creds-oidc/internal/awsutils"
-	"github.com/michaelw/aws-creds-oidc/internal/oidc"
+	"github.com/michaelw/aws-oidc-cli/internal/awsutils"
+	"github.com/michaelw/aws-oidc-cli/internal/oidc"
 	"golang.org/x/oauth2"
 )
 

@@ -10,8 +10,8 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	coreosoidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
-	awsutils "github.com/michaelw/aws-creds-oidc/internal/awsutils"
-	"github.com/michaelw/aws-creds-oidc/internal/oidc"
+	awsutils "github.com/michaelw/aws-oidc-cli/internal/awsutils"
+	"github.com/michaelw/aws-oidc-cli/internal/oidc"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 )
