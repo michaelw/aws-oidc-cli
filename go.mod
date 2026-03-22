@@ -17,7 +17,7 @@ require (
 
 require (
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.8 // indirect
-	golang.org/x/crypto v0.39.0 // indirect
+	golang.org/x/crypto v0.49.0 // indirect
 )
 
 require (
