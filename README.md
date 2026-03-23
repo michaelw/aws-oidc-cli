@@ -1,4 +1,4 @@
-# aws-creds-oidc
+# aws-oidc-cli
 
 This project is an AWS SAM application that provides short-lived AWS (STS) credentials via OIDC authentication.  A matching OIDC provider and roles with matching trust policies are required in the AWS account.
 
