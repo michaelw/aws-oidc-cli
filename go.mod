@@ -1,6 +1,6 @@
 module github.com/michaelw/aws-oidc-cli
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/alecthomas/kong v1.14.0
@@ -35,6 +35,6 @@ require (
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
